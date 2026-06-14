@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "foam.foam-vscode",
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-preview-github-styles",
+    "redhat.vscode-yaml",
+    "ms-python.python"
+  ]
+}

@@ -1,0 +1,10 @@
+# BBAP-Sec Knowledge Hub configuration
+vault_dir: vault          # where your markdown notes live
+run_timeout: 120          # max seconds a project run may take
+
+llm:
+  # backend: "anthropic"  -> Claude via API (set ANTHROPIC_API_KEY in .env)
+  # backend: "ollama"     -> fully local model, nothing leaves your machine
+  backend: anthropic
+  model: claude-opus-4-8
+  ollama_host: http://localhost:11434

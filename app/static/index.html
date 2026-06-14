@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BBAP-Sec Knowledge Hub</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div id="app">
+  <!-- top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="/logo.png" alt="BBAP-Sec" class="brand-logo" />
+      <div class="brand-text">
+        <span class="brand-name">BBAP-Sec</span>
+        <span class="brand-sub">Knowledge Hub</span>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search notes, tags, projects…" autocomplete="off" />
+      <div id="search-results" class="search-results hidden"></div>
+    </div>
+    <div class="top-actions">
+      <span id="agent-status" class="pill" title="agent backend status">agent</span>
+      <button id="reload-btn" class="ghost-btn" title="Re-scan vault from disk">⟳ Sync</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- sidebar -->
+    <nav class="sidebar">
+      <ul class="nav">
+        <li data-view="dashboard" class="active"><span class="ico">◧</span> Dashboard</li>
+        <li data-view="graph"><span class="ico">⌖</span> Knowledge Graph</li>
+        <li data-view="agent"><span class="ico">✦</span> Study Agent</li>
+      </ul>
+      <div class="nav-sep">CATEGORIES</div>
+      <div id="category-tree" class="tree"></div>
+    </nav>
+
+    <!-- main -->
+    <main class="content">
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view">
+        <div class="stat-row" id="stat-row"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">Projects <span class="count" id="proj-count"></span></div>
+            <div id="project-list" class="project-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">Continue learning</div>
+            <div id="learning-list" class="mini-list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">Run output</div>
+          <pre id="run-output" class="run-output">Select a project and press Run to see its output here.</pre>
+        </div>
+      </section>
+
+      <!-- NOTE -->
+      <section id="view-note" class="view hidden">
+        <div class="note-layout">
+          <article id="note-body" class="note-body"></article>
+          <aside class="note-aside">
+            <div class="aside-block">
+              <h4>Sources</h4>
+              <ul id="note-sources" class="src-list"></ul>
+            </div>
+            <div class="aside-block">
+              <h4>Connections</h4>
+              <div id="note-links"></div>
+            </div>
+            <div class="aside-block">
+              <h4>Meta</h4>
+              <div id="note-meta" class="meta"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- GRAPH -->
+      <section id="view-graph" class="view hidden">
+        <div class="card graph-card">
+          <div class="card-head">Knowledge Graph <span class="hint">drag nodes · click to open</span></div>
+          <canvas id="graph-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- AGENT -->
+      <section id="view-agent" class="view hidden">
+        <div class="card chat-card">
+          <div class="card-head">Study Agent <span class="hint">answers from your vault</span></div>
+          <div id="chat-log" class="chat-log"></div>
+          <div class="chat-input">
+            <textarea id="chat-box" rows="2" placeholder="Ask about anything in your vault… (Shift+Enter for newline)"></textarea>
+            <button id="chat-send">Ask</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
