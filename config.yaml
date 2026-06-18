@@ -8,3 +8,10 @@ llm:
   backend: anthropic
   model: claude-opus-4-8
   ollama_host: http://localhost:11434
+
+telemetry:
+  enabled: true
+  log_dir: logs
+  latency_ms: 5000          # warn above this end-to-end latency
+  injection_score: 0.85     # alert at/above this score (0..1)
+  # injection_patterns: []  # uncomment to override the built-in regex list

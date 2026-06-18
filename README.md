@@ -1,9 +1,6 @@
 # BBAP-Sec Knowledge Hub 🪲
 
-Your personal, file-based knowledge base + AI study agent for **AI/ML and AI
-Security Engineering**. Notes are plain Markdown you edit in **VS Code** (or
-Obsidian). A local dashboard reads them, draws a knowledge graph, runs your
-projects, and an AI agent answers questions *from your own notes*.
+personal, file-based knowledge base + AI study agent for **AI/ML and AI Security Engineering**. A local dashboard reads them, draws a knowledge graph, runs projects, and an AI agent answers questions *from notes*.
 
 Built for personal use now, structured so it can grow into a product later.
 
@@ -103,6 +100,29 @@ bbapsec-hub/
 │   └── static/             ← dashboard (index.html, style.css, app.js, logo.png)
 ├── .vscode/                ← recommends Foam + markdown extensions
 ├── config.yaml  requirements.txt  .env.example
+
+
+
+#log
+bbapsec-hub/
+├── vault/                  
+├── projects/               
+├── app/
+│   ├── main.py             
+│   ├── vault.py            
+│   ├── agent.py            
+│   ├── llm.py              
+│   ├── telemetry.py        ← Tracks latency, drift, cost, and security flags
+│   └── static/             
+├── logs/                   ← Stores local JSON/CSV logs of metrics for the dashboard
+│   ├── production_metrics.jsonl
+│   └── data_drift.csv
+├── config.yaml  requirements.txt  .env.example
+
+
+
+
+
 ```
 
 ---

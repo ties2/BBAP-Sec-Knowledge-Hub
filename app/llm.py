@@ -19,6 +19,7 @@ class LLM:
         self.backend = cfg.get("backend", "anthropic")
         self.model = cfg.get("model")
         self.ollama_host = cfg.get("ollama_host", "http://localhost:11434")
+        self.last_usage: dict = {}   # populated after each chat() call
 
     def available(self) -> tuple[bool, str]:
         """Return (ready, reason). Lets the UI show a friendly message."""
@@ -50,6 +51,12 @@ class LLM:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
+        u = getattr(resp, "usage", None)
+        self.last_usage = {
+            "input_tokens": getattr(u, "input_tokens", 0),
+            "output_tokens": getattr(u, "output_tokens", 0),
+            "backend": "anthropic",
+        }
         return "".join(b.text for b in resp.content if b.type == "text")
 
     def _ollama(self, system: str, user: str) -> str:
@@ -65,4 +72,13 @@ class LLM:
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req, timeout=120) as r:
-            return json.loads(r.read())["response"]
+            data = json.loads(r.read())
+        eval_count = data.get("eval_count", 0)
+        eval_ns = data.get("eval_duration", 0) or 0
+        self.last_usage = {
+            "input_tokens": data.get("prompt_eval_count", 0),
+            "output_tokens": eval_count,
+            "tokens_per_sec": round(eval_count / (eval_ns / 1e9), 1) if eval_ns else 0,
+            "backend": "ollama",
+        }
+        return data["response"]

@@ -8,12 +8,14 @@ search, swap _Retriever for an embeddings-based one (see UPGRADE note at bottom)
 """
 from __future__ import annotations
 import re
+import time
 from dataclasses import dataclass
 
 from rank_bm25 import BM25Okapi
 
 from .vault import Vault, Note
 from .llm import LLM
+from . import telemetry
 
 
 def _chunk(text: str, size: int = 900, overlap: int = 150) -> list[str]:
@@ -54,10 +56,13 @@ class _Retriever:
         self.bm25 = BM25Okapi(corpus) if corpus else None
 
     def search(self, query: str, k: int = 5) -> list[Chunk]:
+        self.last_top_score = 0.0
         if not self.bm25 or not self.chunks:
             return []
         scores = self.bm25.get_scores(self._tok(query))
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+        if ranked:
+            self.last_top_score = round(float(scores[ranked[0]]), 3)
         return [self.chunks[i] for i in ranked[:k] if scores[i] > 0]
 
 
@@ -79,26 +84,55 @@ class Agent:
         self.retriever.build(self.vault)
 
     def ask(self, question: str) -> dict:
+        t0 = time.perf_counter()
+        flagged, inj_hits, inj_score = telemetry.scan_injection(question)
         hits = self.retriever.search(question, k=5)
+        retrieval_ms = round((time.perf_counter() - t0) * 1000)
         context = "\n\n".join(
             f"### {h.title}  ({h.rel_path})\n{h.text}" for h in hits
         ) or "(no matching notes found in the vault)"
+        security = {"injection_flag": flagged, "hits": inj_hits, "score": inj_score}
+
         ready, reason = self.llm.available()
         if not ready:
+            telemetry.log_event("inference", {
+                "configured": False,
+                "latency_ms": round((time.perf_counter() - t0) * 1000),
+                "retrieval_ms": retrieval_ms,
+                "top_score": self.retriever.last_top_score,
+                "injection_flag": flagged, "injection_score": inj_score,
+                "injection_hits": inj_hits,
+            })
             return {
                 "answer": f"Agent is not configured yet: {reason}",
                 "sources": [{"id": h.note_id, "title": h.title} for h in hits],
                 "configured": False,
+                "security": security,
             }
+
         user = f"CONTEXT FROM VAULT:\n{context}\n\n---\nQUESTION: {question}"
         answer = self.llm.chat(SYSTEM, user)
+        usage = getattr(self.llm, "last_usage", {}) or {}
+        telemetry.log_event("inference", {
+            "configured": True,
+            "latency_ms": round((time.perf_counter() - t0) * 1000),
+            "retrieval_ms": retrieval_ms,
+            "top_score": self.retriever.last_top_score,
+            "tokens_in": usage.get("input_tokens", 0),
+            "tokens_out": usage.get("output_tokens", 0),
+            "tokens_per_sec": usage.get("tokens_per_sec", 0),
+            "backend": usage.get("backend", self.llm.backend),
+            "injection_flag": flagged, "injection_score": inj_score,
+            "injection_hits": inj_hits,
+        })
         # dedupe sources preserving order
         seen, sources = set(), []
         for h in hits:
             if h.note_id not in seen:
                 seen.add(h.note_id)
                 sources.append({"id": h.note_id, "title": h.title})
-        return {"answer": answer, "sources": sources, "configured": True}
+        return {"answer": answer, "sources": sources, "configured": True,
+                "security": security}
 
 
 # UPGRADE to semantic search later:
