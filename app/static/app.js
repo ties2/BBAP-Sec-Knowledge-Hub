@@ -1,5 +1,25 @@
 // BBAP-Sec Knowledge Hub — dashboard logic (vanilla JS, no build step)
-const api = (p, opts) => fetch("/api" + p, opts).then((r) => r.json());
+async function api(p, opts) {
+  const res = await fetch("/api" + p, {
+    cache: "no-store",
+    ...opts,
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {
+    data = { detail: text || `HTTP ${res.status}` };
+  }
+
+  if (!res.ok) {
+    const msg =
+      data && data.detail ? String(data.detail) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
 const $ = (s) => document.querySelector(s);
 const el = (t, c) => {
   const e = document.createElement(t);
@@ -526,8 +546,18 @@ chatBox.addEventListener("keydown", (e) => {
 
 // ---------- sync ----------
 $("#reload-btn").onclick = async () => {
-  await api("/reload", { method: "POST" });
-  await boot();
+  const btn = $("#reload-btn");
+  const runOut = $("#run-output");
+  btn.disabled = true;
+  try {
+    await api("/reload", { method: "POST" });
+    await boot();
+    if (runOut) runOut.textContent = "Sync complete ✔";
+  } catch (e) {
+    if (runOut) runOut.textContent = `Sync failed: ${String(e)}`;
+  } finally {
+    btn.disabled = false;
+  }
 };
 
 // ---------- canvas force graph (tiny, dependency-free) ----------

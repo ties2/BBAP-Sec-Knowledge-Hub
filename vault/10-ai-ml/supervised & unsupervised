@@ -1,11 +1,10 @@
 ---
-
 title: Supervised and Unsupervised Learning
 type: note
 tags: [machine-learning, supervised-learning, unsupervised-learning, python, scikit-learn]
 status: review
 sources: []
-
+---
 ## Summary
 
 These notes introduce two foundational paradigms of machine learning: supervised and unsupervised learning. Supervised learning utilizes labeled datasets to train algorithms to map inputs to known outputs, useful for tasks like classification and regression. Conversely, unsupervised learning processes unlabeled data to independently discover hidden patterns, groupings, or structures, most commonly through techniques like clustering.
