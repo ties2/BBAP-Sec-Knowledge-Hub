@@ -1,0 +1,58 @@
+---
+
+title: Supervised and Unsupervised Learning
+type: note
+tags: [machine-learning, supervised-learning, unsupervised-learning, python, scikit-learn]
+status: review
+sources: []
+
+## Summary
+
+These notes introduce two foundational paradigms of machine learning: supervised and unsupervised learning. Supervised learning utilizes labeled datasets to train algorithms to map inputs to known outputs, useful for tasks like classification and regression. Conversely, unsupervised learning processes unlabeled data to independently discover hidden patterns, groupings, or structures, most commonly through techniques like clustering.
+
+## Key points
+
+* **Supervised Learning (1.1):**
+* A type of machine learning where the model learns from **labeled data**.
+* Each training example consists of input pairs and expected outputs (labels).
+* **Goal:** The algorithm aims to accurately map inputs to outputs.
+* **Examples:** Classification (e.g., spam detection) and Regression (e.g., house price prediction).
+* **Implementation Example (Decision Tree Classification):**
+```python
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+
+iris = load_iris()
+X, y = iris.data, iris.target
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+clf = DecisionTreeClassifier()
+clf.fit(X_train, y_train)
+print(clf.score(X_test, y_test))
+
+```
+
+
+
+
+* **Unsupervised Learning (1.2):**
+* Deals entirely with **unlabeled data** (no expected outputs are provided).
+* **Goal:** The algorithm tries to find hidden patterns, inherent groupings, or underlying structures in the data.
+* **Common use cases:** Clustering and dimensionality reduction.
+* **Implementation Example (K-Means Clustering):**
+```python
+from sklearn.datasets import load_iris
+from sklearn.cluster import KMeans
+
+iris = load_iris()
+X = iris.data
+kmeans = KMeans(n_clusters=3)
+kmeans.fit(X)
+print(kmeans.labels_)
+
+```
+## Links
+
+* Fundamental branches of [[Machine Learning]]
+* Supervised learning applies to [[Classification]] and [[Regression]] tasks
+* Unsupervised learning applies to [[Clustering]] and [[Dimensionality Reduction]] tasks
