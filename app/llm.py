@@ -8,18 +8,23 @@ Two backends:
 
 Pick the backend in config.yaml -> llm.backend
 """
+
 from __future__ import annotations
-import os
+
 import json
+import os
 import urllib.request
+from collections.abc import Mapping
+from typing import Any
 
 
 class LLM:
-    def __init__(self, cfg: dict):
-        self.backend = cfg.get("backend", "anthropic")
-        self.model = cfg.get("model")
-        self.ollama_host = cfg.get("ollama_host", "http://localhost:11434")
-        self.last_usage: dict = {}   # populated after each chat() call
+    def __init__(self, cfg: Mapping[str, Any]):
+        self.backend: str = str(cfg.get("backend", "anthropic"))
+        model = cfg.get("model")
+        self.model: str | None = str(model) if model is not None else None
+        self.ollama_host: str = str(cfg.get("ollama_host", "http://localhost:11434"))
+        self.last_usage: dict[str, Any] = {}  # populated after each chat() call
 
     def available(self) -> tuple[bool, str]:
         """Return (ready, reason). Lets the UI show a friendly message."""
@@ -27,7 +32,7 @@ class LLM:
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 return False, "ANTHROPIC_API_KEY is not set (see .env.example)."
             try:
-                import anthropic  # noqa
+                import anthropic  # noqa: F401
             except ImportError:
                 return False, "Run: pip install anthropic"
             return True, ""
@@ -44,6 +49,7 @@ class LLM:
 
     def _anthropic(self, system: str, user: str) -> str:
         import anthropic
+
         client = anthropic.Anthropic()
         resp = client.messages.create(
             model=self.model or "claude-opus-4-8",
@@ -57,28 +63,31 @@ class LLM:
             "output_tokens": getattr(u, "output_tokens", 0),
             "backend": "anthropic",
         }
-        return "".join(b.text for b in resp.content if b.type == "text")
+        return "".join(block.text for block in resp.content if block.type == "text")
 
     def _ollama(self, system: str, user: str) -> str:
-        payload = json.dumps({
-            "model": self.model or "llama3.1",
-            "system": system,
-            "prompt": user,
-            "stream": False,
-        }).encode()
+        payload = json.dumps(
+            {
+                "model": self.model or "llama3.1",
+                "system": system,
+                "prompt": user,
+                "stream": False,
+            }
+        ).encode()
         req = urllib.request.Request(
             f"{self.ollama_host}/api/generate",
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = json.loads(r.read())
-        eval_count = data.get("eval_count", 0)
-        eval_ns = data.get("eval_duration", 0) or 0
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data: dict[str, Any] = json.loads(resp.read())
+
+        eval_count = int(data.get("eval_count", 0) or 0)
+        eval_ns = int(data.get("eval_duration", 0) or 0)
         self.last_usage = {
-            "input_tokens": data.get("prompt_eval_count", 0),
+            "input_tokens": int(data.get("prompt_eval_count", 0) or 0),
             "output_tokens": eval_count,
             "tokens_per_sec": round(eval_count / (eval_ns / 1e9), 1) if eval_ns else 0,
             "backend": "ollama",
         }
-        return data["response"]
+        return str(data.get("response", ""))

@@ -16,13 +16,16 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from re import Match
+from typing import Any, Callable
 
 import markdown as md_lib
 import yaml
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+JsonMap = dict[str, Any]
 
 
 @dataclass
@@ -38,13 +41,13 @@ class Note:
     sources: list[str] = field(default_factory=list)  # urls (youtube, sites, pdfs)
     links_out: list[str] = field(default_factory=list)  # ids this note points to
     links_in: list[str] = field(default_factory=list)  # ids pointing here
-    frontmatter: dict = field(default_factory=dict)
+    frontmatter: JsonMap = field(default_factory=dict)
     body: str = ""  # raw markdown (without frontmatter)
     html: str = ""  # rendered html
     mtime: float = 0.0
 
-    def to_summary(self) -> dict:
-        d = asdict(self)
+    def to_summary(self) -> JsonMap:
+        d: JsonMap = asdict(self)
         d.pop("body", None)
         d.pop("html", None)
         return d
@@ -54,32 +57,38 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
+def _as_list(v: Any) -> list[Any]:
+    if v is None:
+        return []
+    return v if isinstance(v, list) else [v]
+
+
 def _parse_file(path: Path, vault_root: Path) -> Note:
     raw = path.read_text(encoding="utf-8", errors="replace")
-    fm: dict = {}
+    fm: JsonMap = {}
     body = raw
 
     m = FRONTMATTER_RE.match(raw)
     if m:
         try:
-            fm = yaml.safe_load(m.group(1)) or {}
+            loaded = yaml.safe_load(m.group(1)) or {}
+            fm = loaded if isinstance(loaded, dict) else {}
         except yaml.YAMLError:
             fm = {}
         body = raw[m.end() :]
 
     rel = path.relative_to(vault_root).as_posix()
     category = rel.split("/")[0] if "/" in rel else "root"
-    title = fm.get("title") or path.stem.replace("-", " ").replace("_", " ").title()
+    fm_title = fm.get("title")
+    title = (
+        str(fm_title)
+        if fm_title
+        else path.stem.replace("-", " ").replace("_", " ").title()
+    )
 
-    # outgoing wikilinks -> note ids
-    links_out = []
+    links_out: list[str] = []
     for lm in WIKILINK_RE.finditer(body):
         links_out.append(_slugify(lm.group(1)))
-
-    def _as_list(v):
-        if v is None:
-            return []
-        return v if isinstance(v, list) else [v]
 
     return Note(
         id=_slugify(path.stem),
@@ -87,7 +96,7 @@ def _parse_file(path: Path, vault_root: Path) -> Note:
         path=str(path),
         rel_path=rel,
         category=category,
-        type=fm.get("type", "note"),
+        type=str(fm.get("type", "note")),
         tags=[str(t) for t in _as_list(fm.get("tags"))],
         status=str(fm.get("status", "")),
         sources=[str(s) for s in _as_list(fm.get("sources"))],
@@ -99,10 +108,12 @@ def _parse_file(path: Path, vault_root: Path) -> Note:
 
 
 def _render_html(
-    note: Note, by_id: dict[str, Note], resolve_link: Callable[[str], Optional[str]]
+    note: Note,
+    by_id: dict[str, Note],
+    resolve_link: Callable[[str], str | None],
 ) -> str:
     # turn [[wikilinks]] into clickable internal links before markdown rendering
-    def repl(m):
+    def repl(m: Match[str]) -> str:
         requested = _slugify(m.group(1))
         resolved = resolve_link(requested)
         label = m.group(2) or m.group(1)
@@ -121,7 +132,7 @@ class Vault:
     """Loads and indexes the whole vault. Call .reload() to pick up edits."""
 
     def __init__(self, root: str):
-        self.root = Path(root).resolve()
+        self.root: Path = Path(root).resolve()
         self.notes: dict[str, Note] = {}
         self.reload()
 
@@ -155,7 +166,7 @@ class Vault:
             stem_aliases.setdefault(stem_key, []).append(note.id)
             title_aliases.setdefault(_slugify(note.title), []).append(note.id)
 
-        def resolve_link(target: str) -> Optional[str]:
+        def resolve_link(target: str) -> str | None:
             if target in notes:
                 return target
             by_stem = stem_aliases.get(target, [])
@@ -182,40 +193,40 @@ class Vault:
         self.notes = notes
 
     # ---- queries used by the API ----
-    def get(self, note_id: str) -> Optional[Note]:
+    def get(self, note_id: str) -> Note | None:
         return self.notes.get(note_id)
 
-    def all_summaries(self) -> list[dict]:
+    def all_summaries(self) -> list[JsonMap]:
         return [
             n.to_summary()
             for n in sorted(self.notes.values(), key=lambda n: n.title.lower())
         ]
 
-    def categories(self) -> dict[str, list[dict]]:
-        out: dict[str, list[dict]] = {}
+    def categories(self) -> dict[str, list[JsonMap]]:
+        out: dict[str, list[JsonMap]] = {}
         for n in self.notes.values():
             out.setdefault(n.category, []).append(n.to_summary())
         for k in out:
-            out[k].sort(key=lambda d: d["title"].lower())
+            out[k].sort(key=lambda d: str(d["title"]).lower())
         return dict(sorted(out.items()))
 
-    def projects(self) -> list[dict]:
+    def projects(self) -> list[JsonMap]:
         return [n.to_summary() for n in self.notes.values() if n.type == "project"]
 
-    def graph(self) -> dict:
-        nodes = [
+    def graph(self) -> JsonMap:
+        nodes: list[JsonMap] = [
             {"id": n.id, "title": n.title, "category": n.category, "type": n.type}
             for n in self.notes.values()
         ]
-        edges = []
-        seen = set()
+        edges: list[JsonMap] = []
+        seen: set[tuple[str, str]] = set()
         stem_aliases: dict[str, list[str]] = {}
         title_aliases: dict[str, list[str]] = {}
         for n in self.notes.values():
             stem_aliases.setdefault(_slugify(Path(n.rel_path).stem), []).append(n.id)
             title_aliases.setdefault(_slugify(n.title), []).append(n.id)
 
-        def resolve_link(target: str) -> Optional[str]:
+        def resolve_link(target: str) -> str | None:
             if target in self.notes:
                 return target
             by_stem = stem_aliases.get(target, [])
@@ -234,7 +245,7 @@ class Vault:
                     seen.add((n.id, resolved))
         return {"nodes": nodes, "edges": edges}
 
-    def stats(self) -> dict:
+    def stats(self) -> JsonMap:
         all_tags: dict[str, int] = {}
         for n in self.notes.values():
             for t in n.tags:
