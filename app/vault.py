@@ -10,16 +10,16 @@ This module turns that folder into structured data the dashboard + agent use:
 
 Nothing here writes to your files. It is read-only by design.
 """
+
 from __future__ import annotations
 
 import re
-import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
-import yaml
 import markdown as md_lib
+import yaml
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -27,20 +27,20 @@ FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 @dataclass
 class Note:
-    id: str                       # slug, e.g. "prompt-injection"
+    id: str  # slug, e.g. "prompt-injection"
     title: str
-    path: str                     # absolute path on disk
-    rel_path: str                 # path relative to the vault root
-    category: str                 # top-level folder, e.g. "20-ai-security"
-    type: str = "note"            # note | project | resource (from frontmatter)
+    path: str  # absolute path on disk
+    rel_path: str  # path relative to the vault root
+    category: str  # top-level folder, e.g. "20-ai-security"
+    type: str = "note"  # note | project | resource (from frontmatter)
     tags: list[str] = field(default_factory=list)
-    status: str = ""              # e.g. learning | done | idea
+    status: str = ""  # e.g. learning | done | idea
     sources: list[str] = field(default_factory=list)  # urls (youtube, sites, pdfs)
     links_out: list[str] = field(default_factory=list)  # ids this note points to
-    links_in: list[str] = field(default_factory=list)   # ids pointing here
+    links_in: list[str] = field(default_factory=list)  # ids pointing here
     frontmatter: dict = field(default_factory=dict)
-    body: str = ""                # raw markdown (without frontmatter)
-    html: str = ""                # rendered html
+    body: str = ""  # raw markdown (without frontmatter)
+    html: str = ""  # rendered html
     mtime: float = 0.0
 
     def to_summary(self) -> dict:
@@ -65,7 +65,7 @@ def _parse_file(path: Path, vault_root: Path) -> Note:
             fm = yaml.safe_load(m.group(1)) or {}
         except yaml.YAMLError:
             fm = {}
-        body = raw[m.end():]
+        body = raw[m.end() :]
 
     rel = path.relative_to(vault_root).as_posix()
     category = rel.split("/")[0] if "/" in rel else "root"
@@ -98,13 +98,16 @@ def _parse_file(path: Path, vault_root: Path) -> Note:
     )
 
 
-def _render_html(note: Note, by_id: dict[str, Note]) -> str:
+def _render_html(
+    note: Note, by_id: dict[str, Note], resolve_link: Callable[[str], Optional[str]]
+) -> str:
     # turn [[wikilinks]] into clickable internal links before markdown rendering
     def repl(m):
-        target = _slugify(m.group(1))
+        requested = _slugify(m.group(1))
+        resolved = resolve_link(requested)
         label = m.group(2) or m.group(1)
-        if target in by_id:
-            return f'<a class="wikilink" href="#" data-note="{target}">{label}</a>'
+        if resolved and resolved in by_id:
+            return f'<a class="wikilink" href="#" data-note="{resolved}">{label}</a>'
         return f'<span class="wikilink missing" title="note not found">{label}</span>'
 
     text = WIKILINK_RE.sub(repl, note.body)
@@ -124,25 +127,57 @@ class Vault:
 
     def reload(self) -> None:
         notes: dict[str, Note] = {}
-        for path in self.root.rglob("*.md"):
+        stem_aliases: dict[str, list[str]] = {}
+        title_aliases: dict[str, list[str]] = {}
+
+        for path in sorted(self.root.rglob("*.md")):
             if any(part.startswith(".") for part in path.parts):
                 continue
             if "templates" in path.relative_to(self.root).parts:
                 continue  # templates are scaffolding, not knowledge
+
             note = _parse_file(path, self.root)
+            stem_key = note.id
+
+            # Ensure unique IDs so duplicate filenames (e.g. many _index.md files)
+            # never overwrite each other in memory.
+            unique_id = note.id
+            if unique_id in notes:
+                unique_id = _slugify(note.rel_path.rsplit(".", 1)[0])
+            if unique_id in notes:
+                i = 2
+                while f"{unique_id}-{i}" in notes:
+                    i += 1
+                unique_id = f"{unique_id}-{i}"
+            note.id = unique_id
+
             notes[note.id] = note
+            stem_aliases.setdefault(stem_key, []).append(note.id)
+            title_aliases.setdefault(_slugify(note.title), []).append(note.id)
+
+        def resolve_link(target: str) -> Optional[str]:
+            if target in notes:
+                return target
+            by_stem = stem_aliases.get(target, [])
+            if len(by_stem) == 1:
+                return by_stem[0]
+            by_title = title_aliases.get(target, [])
+            if len(by_title) == 1:
+                return by_title[0]
+            return None
 
         # build backlinks
         for note in notes.values():
             for target in note.links_out:
-                if target in notes:
-                    notes[target].links_in.append(note.id)
+                resolved = resolve_link(target)
+                if resolved and resolved in notes:
+                    notes[resolved].links_in.append(note.id)
         for note in notes.values():
             note.links_in = sorted(set(note.links_in))
 
         # render html (needs all notes present for link resolution)
         for note in notes.values():
-            note.html = _render_html(note, notes)
+            note.html = _render_html(note, notes, resolve_link)
 
         self.notes = notes
 
@@ -151,7 +186,10 @@ class Vault:
         return self.notes.get(note_id)
 
     def all_summaries(self) -> list[dict]:
-        return [n.to_summary() for n in sorted(self.notes.values(), key=lambda n: n.title.lower())]
+        return [
+            n.to_summary()
+            for n in sorted(self.notes.values(), key=lambda n: n.title.lower())
+        ]
 
     def categories(self) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
@@ -171,11 +209,29 @@ class Vault:
         ]
         edges = []
         seen = set()
+        stem_aliases: dict[str, list[str]] = {}
+        title_aliases: dict[str, list[str]] = {}
+        for n in self.notes.values():
+            stem_aliases.setdefault(_slugify(Path(n.rel_path).stem), []).append(n.id)
+            title_aliases.setdefault(_slugify(n.title), []).append(n.id)
+
+        def resolve_link(target: str) -> Optional[str]:
+            if target in self.notes:
+                return target
+            by_stem = stem_aliases.get(target, [])
+            if len(by_stem) == 1:
+                return by_stem[0]
+            by_title = title_aliases.get(target, [])
+            if len(by_title) == 1:
+                return by_title[0]
+            return None
+
         for n in self.notes.values():
             for t in n.links_out:
-                if t in self.notes and (n.id, t) not in seen:
-                    edges.append({"source": n.id, "target": t})
-                    seen.add((n.id, t))
+                resolved = resolve_link(t)
+                if resolved and resolved in self.notes and (n.id, resolved) not in seen:
+                    edges.append({"source": n.id, "target": resolved})
+                    seen.add((n.id, resolved))
         return {"nodes": nodes, "edges": edges}
 
     def stats(self) -> dict:

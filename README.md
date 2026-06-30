@@ -33,6 +33,7 @@ pip install -r requirements.txt
 
 # (optional, to enable the agent) use Claude:
 cp .env.example .env        # then put your ANTHROPIC_API_KEY in .env
+# .env is loaded automatically at app startup
 # ...or run a fully local model instead — see "Going fully local" below
 
 uvicorn app.main:app --reload --port 8787
