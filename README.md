@@ -4,6 +4,10 @@ personal, file-based knowledge base + AI study agent for **AI/ML and AI Security
 
 Built for personal use now, structured so it can grow into a product later.
 
+<p align="center">
+  <img src="https://github.com/ties2/BBAP-Sec-Knowledge-Hub/tree/main/images" alt="Description of the image">
+</p>
+
 ---
 
 ## Why this design
