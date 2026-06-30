@@ -23,3 +23,14 @@ def test_duplicate_stems_do_not_overwrite(tmp_path: Path) -> None:
 
     rel_to_id = {n.rel_path: n.id for n in vault.notes.values()}
     assert rel_to_id["10-ai-ml/_index.md"] != rel_to_id["20-ai-security/_index.md"]
+
+
+def test_extensionless_note_is_indexed(tmp_path: Path) -> None:
+    _write_note(tmp_path / "10-ai-ml" / "supervised & unsupervised", "S/U")
+
+    vault = Vault(str(tmp_path))
+
+    assert len(vault.notes) == 1
+    only = next(iter(vault.notes.values()))
+    assert only.rel_path == "10-ai-ml/supervised & unsupervised"
+    assert only.title == "S/U"

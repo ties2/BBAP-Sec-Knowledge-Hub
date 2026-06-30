@@ -30,10 +30,6 @@ clf.fit(X_train, y_train)
 print(clf.score(X_test, y_test))
 
 ```
-
-
-
-
 * **Unsupervised Learning (1.2):**
 * Deals entirely with **unlabeled data** (no expected outputs are provided).
 * **Goal:** The algorithm tries to find hidden patterns, inherent groupings, or underlying structures in the data.

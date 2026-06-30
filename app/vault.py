@@ -141,7 +141,11 @@ class Vault:
         stem_aliases: dict[str, list[str]] = {}
         title_aliases: dict[str, list[str]] = {}
 
-        for path in sorted(self.root.rglob("*.md")):
+        for path in sorted(self.root.rglob("*")):
+            if not path.is_file():
+                continue
+            if path.suffix.lower() not in {"", ".md", ".markdown"}:
+                continue
             if any(part.startswith(".") for part in path.parts):
                 continue
             if "templates" in path.relative_to(self.root).parts:
