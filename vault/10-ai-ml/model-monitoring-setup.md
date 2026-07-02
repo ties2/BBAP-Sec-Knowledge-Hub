@@ -1,12 +1,11 @@
 ---
 title: Hub Model Monitoring
-type: project
+type: note
 tags: [mlops, telemetry, ai-security]
 status: learning
 sources:
   - https://whylabs.ai
   - https://evidentlyai.com
-run: "python3 app/telemetry.py --test-drift"
 ---
 
 ## Implementation Details

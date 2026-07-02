@@ -1,9 +1,10 @@
 ---
-title: CI/CD Explained: The DevOps Skill That Makes You 10x More Valuable
+title: CI/CD 
+Explained: The DevOps Skill That Makes You 10x More Valuable
 type: note
 tags: [devops, ci-cd, automation, software-engineering]
 status: review
-sources:
+sources: 
   - https://www.youtube.com/watch?v=AknbizcLq4w
 ---
 ## Summary

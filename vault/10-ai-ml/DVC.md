@@ -1,5 +1,6 @@
 ---
-title: Data Version Control (DVC) Explained: The Core of Reproducible MLOps
+title: Data Version Control (DVC) 
+Explained: The Core of Reproducible MLOps
 type: note
 tags: [mlops, dvc, machine-learning, version-control, automation]
 status: review
